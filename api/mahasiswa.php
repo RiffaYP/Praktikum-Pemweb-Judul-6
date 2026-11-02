@@ -27,7 +27,7 @@ try {
     http_response_code(500);
     echo json_encode([
         'status' => 'error',
-        'message' => 'Gagal terhubung ke database: ' . $e->getMessage(),
+        'message' => 'Gagal terhubung ke database.',
         'data' => null
     ]);
     exit;
@@ -151,7 +151,7 @@ function handlePost(PDO $pdo): void {
         ]);
     } catch (PDOException $e) {
         http_response_code(400);
-        echo json_encode(['status' => 'error', 'message' => 'Gagal menambahkan data: ' . $e->getMessage()]);
+        echo json_encode(['status' => 'error', 'message' => 'Gagal menambahkan data.']);
     }
 }
 
@@ -166,17 +166,49 @@ function handlePut(PDO $pdo, ?int $id): void {
     }
 
     $input = json_decode(file_get_contents('php://input'), true) ?? [];
-    $stmt = $pdo->prepare('UPDATE mahasiswa SET nama = :nama, program_studi = :prodi, angkatan = :angkatan, email = :email WHERE id = :id');
-    $stmt->execute([
-        ':id' => $id,
-        ':nama' => trim($input['nama'] ?? ''),
-        ':prodi' => trim($input['program_studi'] ?? ''),
-        ':angkatan' => (int)($input['angkatan'] ?? 0),
-        ':email' => trim($input['email'] ?? '')
-    ]);
+    if (!is_array($input)) {
+        $input = [];
+    }
 
-    http_response_code(200);
-    echo json_encode(['status' => 'success', 'message' => 'Data mahasiswa berhasil diperbarui.']);
+    $npm = trim($input['npm'] ?? '');
+    $nama = trim($input['nama'] ?? '');
+    $program_studi = trim($input['program_studi'] ?? '');
+    $angkatan = (int)($input['angkatan'] ?? 0);
+    $email = trim($input['email'] ?? '');
+
+    if (empty($npm) || empty($nama) || empty($program_studi) || empty($angkatan) || empty($email)) {
+        http_response_code(400);
+        echo json_encode(['status' => 'error', 'message' => 'Seluruh bidang isian wajib diisi.']);
+        return;
+    }
+
+    try {
+        $stmt = $pdo->prepare('UPDATE mahasiswa SET npm = :npm, nama = :nama, program_studi = :prodi, angkatan = :angkatan, email = :email WHERE id = :id');
+        $stmt->execute([
+            ':id' => $id,
+            ':npm' => $npm,
+            ':nama' => $nama,
+            ':prodi' => $program_studi,
+            ':angkatan' => $angkatan,
+            ':email' => $email
+        ]);
+
+        if ($stmt->rowCount() === 0) {
+            $check = $pdo->prepare('SELECT id FROM mahasiswa WHERE id = :id');
+            $check->execute([':id' => $id]);
+            if (!$check->fetch()) {
+                http_response_code(404);
+                echo json_encode(['status' => 'error', 'message' => "Mahasiswa dengan ID {$id} tidak ditemukan."]);
+                return;
+            }
+        }
+
+        http_response_code(200);
+        echo json_encode(['status' => 'success', 'message' => 'Data mahasiswa berhasil diperbarui.']);
+    } catch (PDOException $e) {
+        http_response_code(400);
+        echo json_encode(['status' => 'error', 'message' => 'Gagal memperbarui data.']);
+    }
 }
 
 /**
@@ -189,9 +221,20 @@ function handleDelete(PDO $pdo, ?int $id): void {
         return;
     }
 
-    $stmt = $pdo->prepare('DELETE FROM mahasiswa WHERE id = :id');
-    $stmt->execute([':id' => $id]);
+    try {
+        $stmt = $pdo->prepare('DELETE FROM mahasiswa WHERE id = :id');
+        $stmt->execute([':id' => $id]);
 
-    http_response_code(200);
-    echo json_encode(['status' => 'success', 'message' => 'Data mahasiswa berhasil dihapus.']);
+        if ($stmt->rowCount() === 0) {
+            http_response_code(404);
+            echo json_encode(['status' => 'error', 'message' => "Mahasiswa dengan ID {$id} tidak ditemukan."]);
+            return;
+        }
+
+        http_response_code(200);
+        echo json_encode(['status' => 'success', 'message' => 'Data mahasiswa berhasil dihapus.']);
+    } catch (PDOException $e) {
+        http_response_code(500);
+        echo json_encode(['status' => 'error', 'message' => 'Gagal menghapus data.']);
+    }
 }
