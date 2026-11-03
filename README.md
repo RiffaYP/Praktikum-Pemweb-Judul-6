@@ -14,7 +14,7 @@ Mahasiswa mampu:
 - Elemen target: Tombol aksi Hapus pada tabel dan input `#input-search` pada toolbar.
 
 ---
-
+ 
 ## 3. Instruksi Pengerjaan
 Buka berkas `js/app.js` dan lengkapi dua fitur terakhir:
 
